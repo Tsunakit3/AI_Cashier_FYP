@@ -1,0 +1,28 @@
+FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    git ffmpeg python3 python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Clone the repo
+RUN git clone https://github.com/hpcaitech/Open-Sora.git .
+
+# Install Python package
+RUN pip install -v .
+
+# Additional speedups (optional)
+RUN pip install xformers==0.0.27.post2 --index-url https://download.pytorch.org/whl/cu121
+RUN pip install flash-attn --no-build-isolation
+
+# Create checkpoints directory
+RUN mkdir -p /app/ckpts
+
+# Default inference command (can override)
+CMD ["bash"]

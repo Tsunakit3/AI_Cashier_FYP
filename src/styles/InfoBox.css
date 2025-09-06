@@ -1,0 +1,79 @@
+.info-box {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px; 
+    width:95%;
+}
+
+.info-logo {
+    max-width: 100%;
+    object-fit: contain;
+}
+
+.logo-row,
+.status-row,
+.station-row,
+.time-row {
+    display: flex;
+    flex:1;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    /* spacing between words inside */
+    white-space: nowrap;
+    /* prevent line breaks */
+    position: relative;
+}
+
+.logo-row::after,
+.status-row::after,
+.station-row::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    top: 50%; /* middle of row */
+    transform: translateY(-50%); /* center vertically */
+    width: 1px;
+    height: 40px; /* constant height */
+    background-color: silver;
+}
+
+.time-row::after {
+    display: none;
+}
+
+
+.station-name {
+    font-size: 24px;
+    font-family: "Libertinus Keyboard", serif;
+    font-weight: 400;
+    color: #3E2723;
+}
+
+.curr-station,
+.status-text,
+.next-train,
+.weather,
+.date {
+    font-size: 18px;
+    margin-left: 8px;
+}
+
+.blink {
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+
+    0%,
+    50% {
+        opacity: 1;
+    }
+
+    50.01%,
+    100% {
+        opacity: 0;
+    }
+}

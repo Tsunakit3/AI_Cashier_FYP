@@ -1,0 +1,268 @@
+/* MapBox.css - Complete External Stylesheet */
+
+.map-box {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    font-family: Arial, sans-serif;
+}
+
+/* Header Section */
+.lrt-title {
+    height: auto;
+    min-height: 8%;
+    font-weight: bold;
+    flex-direction: contain;
+    text-align: center;
+    padding: 10px;
+}
+
+.lrt-title h3 {
+    margin: 0 0 10px 0;
+    color: #333;
+}
+
+/* Selected Destination Styles */
+.selected-destination {
+    background-color: #e8f5e8;
+    border: 2px solid #4caf50;
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.destination-info {
+    flex: 1;
+}
+
+.destination-text strong {
+    color: #2e7d32;
+    font-size: 14px;
+}
+
+.line-info {
+    font-size: 12px;
+    margin-top: 2px;
+    font-weight: 500;
+}
+
+.clear-button {
+    background-color: #f44336;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+
+.clear-button:hover {
+    background-color: #d32f2f;
+}
+
+/* Line List Layout */
+.line-list {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+    gap: 10px;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.line-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+}
+
+/* Line Box Styles */
+.line-box {
+    width: 90%;
+    height: 75px;
+    color: white;
+    font-weight: bold;
+    font-size: 14px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: transform 0.2s, opacity 0.2s;
+    position: relative;
+}
+
+.line-box:hover {
+    transform: scale(1.05);
+    opacity: 0.9;
+}
+
+.expand-icon {
+    position: absolute;
+    right: 15px;
+    font-size: 12px;
+    transition: transform 0.3s ease;
+}
+
+/* Horizontal Station List Styles */
+.station-list-wrapper {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.5s ease, opacity 0.5s ease;
+    opacity: 0;
+    width: 90%;
+    margin: 0 auto;
+}
+
+.station-list-wrapper.open {
+    max-height: 120px;
+    opacity: 1;
+}
+
+.station-list-horizontal {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding: 10px 0;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+}
+
+.station-box-horizontal {
+    min-width: 120px;
+    padding: 12px 16px;
+    background-color: #f4f4f4;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: center;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.2s;
+    position: relative;
+    border: 2px solid transparent;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.station-box-horizontal:hover {
+    background-color: #ddd;
+    transform: translateY(-2px);
+}
+
+.station-box-horizontal.selected {
+    background-color: #4caf50;
+    color: white;
+    border-color: #388e3c;
+    box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
+    transform: translateY(-2px);
+}
+
+.station-box-horizontal.selected:hover {
+    background-color: #388e3c;
+}
+
+.selected-icon {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+    color: white;
+    font-weight: bold;
+}
+
+/* Custom Scrollbar for Horizontal List */
+.station-list-horizontal::-webkit-scrollbar {
+    height: 6px;
+}
+
+.station-list-horizontal::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.station-list-horizontal::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+    transition: background 0.2s;
+}
+
+.station-list-horizontal::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Journey Information Styles */
+.journey-info {
+    display:flex;
+    flex-direction: row;
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #f0f8ff;
+    border: 1px solid #0066cc;
+    border-radius: 8px;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.journey-info h4 {
+    margin: 0 0 10px 0;
+    color: #0066cc;
+    font-size: 16px;
+}
+
+.journey-details p {
+    display: flex;
+    flex-direction: column;
+    margin: 5px 0;
+    color: #333;
+    font-size: 14px;
+}
+
+.ready-text {
+    margin-top: 10px !important;
+    color: #666 !important;
+    font-style: italic;
+}
+
+.qr-code{
+    height: auto;
+    width: 30%;
+    margin-left: auto;
+    border: 2px solid #4caf50;
+    border-radius: 8px;
+
+}

@@ -1,0 +1,117 @@
+.boot-page {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.boot-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: url("../assets/images/background.jpg") no-repeat center center/cover;
+    filter: blur(10px) brightness(0.7);
+    z-index: -1;
+}
+
+.boot-container {
+    height: 100%;
+    width: 70%;
+    aspect-ratio: 9 / 16;
+    max-width: 100%;
+    max-height: 100%;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    backdrop-filter: blur(15px);
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(150deg, #2a60d4 30%, #fdf4e3 30% 70%, #e63946 70%);
+}
+
+.flag {
+    position: absolute;
+    top: 5%;
+    left: 5%;
+    width: 17%;
+    height: auto;
+}
+
+.title {
+    top: 15%;
+    font-size: 4rem;
+    font-family: Brush Script MT;
+    font-weight: bold;
+    transform: rotate(-22.5deg);
+    color: black;
+    text-align: center;
+}
+
+.power-container {
+    margin-top: 5%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.subtitle {
+    font-size: 1rem;
+    color: rgba(128, 128, 128, 0.5);
+    text-align: center;
+    transition: color 0.3s ease;
+    animation: float 2s ease-in-out infinite;
+    pointer-events: none;
+}
+
+.power-btn {
+    margin-top: 2rem;
+    padding: 12px 24px;
+    font-size: 1.2rem;
+    border: none;
+    border-radius: 100px;
+    background: rgba(200, 0, 0, 0.8);
+    color: white;
+    cursor: pointer;
+    transition: 0.3s ease ;
+}
+
+.power-container:hover .power-btn {
+    background: rgba(0, 200, 0, 0.8);
+}
+
+.power-container:hover .subtitle {
+    color: rgba(128, 128, 128, 1); 
+}
+
+@keyframes float {
+    0% {
+        transform: translateY(0px);
+    }
+
+    50% {
+        transform: translateY(-5px);
+    }
+
+    100% {
+        transform: translateY(0px);
+    }
+}
+
+.train {
+  position: absolute;
+  bottom: 10%;
+  left: 43%;
+  height: 10%; 
+  transition: transform 3s linear;
+}
+
+.train-move {
+  transform: translateX(-40vw);
+}
