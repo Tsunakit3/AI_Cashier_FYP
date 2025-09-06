@@ -1,50 +1,100 @@
 import '../styles/ChatBox.css';
-/* import { Send, Mic, MicOff } from "lucide-react"; */
 import MicButton from './mic-button';
-import { AIReply } from '../services/ai-reply';
 import { useState, useRef, useEffect } from "react";
 
-export default function ChatBox({ onAIResponse }) {
+export default function ChatBox() {
     const [messages, setMessages] = useState([
-        { id: 1, sender: "ai", text: "Hello 👋 I’m Lucy,  your AI assistant" },
+        { id: 1, sender: "ai", text: "Hello 👋 I’m Lucy, your AI assistant, how may I help you today ?" },
     ]);
     const [input, setInput] = useState("");
     const chatEndRef = useRef(null);
 
+    // --- Shared AI reply handler ---
+    const handleAIReply = async (aiText) => {
+        const aiMessageId = Date.now() + 1;
+        // Add empty AI bubble first
+        setMessages((prev) => [...prev, { id: aiMessageId, sender: "ai", text: "" }]);
+
+        // Request TTS
+        const ttsRes = await fetch("http://localhost:8020/infer", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                text: aiText,
+                speaker: "Shafiqah Idayu"
+            })
+        });
+
+        if (ttsRes.ok) {
+            const audioBlob = await ttsRes.blob();
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+
+            audio.onloadedmetadata = () => {
+                const duration = audio.duration; // in seconds
+                const words = aiText.split(" ");
+                const delay = (duration * 1000) / words.length;
+
+                let currentText = "";
+                words.forEach((word, i) => {
+                    setTimeout(() => {
+                        currentText += word + " ";
+                        setMessages((prev) =>
+                            prev.map((msg) =>
+                                msg.id === aiMessageId ? { ...msg, text: currentText } : msg
+                            )
+                        );
+                    }, i * delay);
+                });
+
+                audio.play();
+            };
+        }
+    };
+
     const sendMessage = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
         if (!input.trim()) return;
 
-        const newMsg = { id: Date.now(), sender: "user", text: input };
-        setMessages((prev) => [...prev, newMsg]);
-        setInput("");
+        const newMessage = { id: Date.now(), sender: "user", text: input };
+        setMessages((prev) => [...prev, newMessage]);
 
-        const aiReply = await AIReply(input);
+        try {
+            const res = await fetch("http://localhost:8010/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    user_message: input,
+                    session_id: "1234"
+                }),
+            });
 
-        let aiReplyMsg = "";
+            const data = await res.json();
+            await handleAIReply(data.text);
 
-        /*switch (aiReply.query_type) {
-            case "ticket_query":
-                aiReplyMsg = "Here is your ticket detail:" + aiReply.ticket_details.session_id + aiReply.ticket_details.from_station
-                break
-            case "route_query":
-                aiReplyMsg = "Here is your route details" + aiReply.route_details.station_line1 + aiReply.route_details.station_line2
-                break
-
-            default:
-                aiReplyMsg = aiReply.text ?? "I didn't understand that, can you retry";
+        } catch (err) {
+            console.error("Error:", err);
+        } finally {
+            setInput("");
         }
-                */
+    };
 
-        setMessages((prev) => [
-            ...prev,
-            { id: Date.now(), sender: "ai", text: aiReply.text + "\n" + aiReplyMsg },
-        ]);
+    const handleTranscript = async (transcript) => {
+        const userMessage = { id: Date.now(), sender: "user", text: transcript };
+        setMessages((prev) => [...prev, userMessage]);
 
-        if (onAIResponse) {
-            onAIResponse(aiReply);
+        try {
+            const res = await fetch("http://localhost:8010/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ user_message: transcript, session_id: "1234" }),
+            });
+            const data = await res.json();
+            await handleAIReply(data.text);
+
+        } catch (err) {
+            console.error("Error:", err);
         }
-
     };
 
     useEffect(() => {
@@ -53,7 +103,7 @@ export default function ChatBox({ onAIResponse }) {
 
     return (
         <div className="chat-container">
-            <div className="chat-header">AI Cashier 💬</div>
+            <div className="chat-header">AI Cashier : Lucy 💬</div>
 
             <div className="chat-body">
                 {messages.map((msg) => (
@@ -75,7 +125,7 @@ export default function ChatBox({ onAIResponse }) {
                     onChange={(e) => setInput(e.target.value)}
                 />
                 <button type="submit">➤</button>
-                <MicButton onTranscript={(t) => setInput(t)} />
+                <MicButton onTranscript={handleTranscript} />
             </form>
         </div>
     );

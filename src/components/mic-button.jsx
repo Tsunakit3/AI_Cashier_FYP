@@ -1,110 +1,67 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 
 export default function MicButton({ onTranscript }) {
-    const [listening, setListening] = useState(false);
-    const recognitionRef = useRef(null);
-    const mediaRecorderRef = useRef(null);
-    const audioChunksRef = useRef([]);
+  const [recording, setRecording] = useState(false);
+  const mediaRecorderRef = useRef(null);
+  const audioChunks = useRef([]);
 
-    useEffect(() => {
-        const SpeechRecognition =
-            window.SpeechRecognition || window.webkitSpeechRecognition;
+  const startRecording = async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-        if (SpeechRecognition) {
-            const recognition = new SpeechRecognition();
-            recognition.lang = "en-US"; // or "ms-MY"
-            recognition.continuous = false;
-            recognition.interimResults = true;
+    // ✅ Use WebM with Opus (works with your backend process_audio)
+    const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+      ? "audio/webm;codecs=opus"
+      : "audio/webm";
 
-            recognition.onresult = (event) => {
-                let transcript = "";
-                for (let i = 0; i < event.results.length; i++) {
-                    transcript += event.results[i][0].transcript;
-                }
-                if (onTranscript) onTranscript(transcript); // send transcript up
-            };
+    const mediaRecorder = new MediaRecorder(stream, { mimeType });
+    mediaRecorderRef.current = mediaRecorder;
 
-            recognition.onend = () => {
-                stopRecording();
-                setListening(false);
-            };
+    audioChunks.current = [];
+    mediaRecorder.start();
+    setRecording(true);
 
-            recognition.onerror = (event) => {
-                console.error("Speech recognition error:", event.error);
-                setListening(false);
-            };
-
-            recognitionRef.current = recognition;
-        } else {
-            console.warn("Speech Recognition not supported in this browser.");
-        }
-    }, [onTranscript]);
-
-    const startRecording = async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorderRef.current = new MediaRecorder(stream);
-
-            mediaRecorderRef.current.onstart = () => {
-                console.log("Recorder started...");
-                audioChunksRef.current = [];
-            };
-
-            mediaRecorderRef.current.ondataavailable = (event) => {
-                if (event.data.size > 0) {
-                    audioChunksRef.current.push(event.data);
-                }
-            };
-
-            mediaRecorderRef.current.onstop = () => {
-
-                if (audioChunksRef.current.length === 0) {
-                    console.warn("⚠️ No audio chunks captured.");
-                    return;
-                }
-
-                const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-                const audioUrl = URL.createObjectURL(audioBlob);
-
-                const filename = 'voice' + Date.now() + ".wav";
-
-                // Download the recording
-                const a = document.createElement("a");
-                a.href = audioUrl;
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-            };
-
-            mediaRecorderRef.current.start();
-        } catch (err) {
-            console.error("Microphone error:", err);
-        }
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        audioChunks.current.push(event.data);
+      }
     };
 
-    const stopRecording = () => {
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-            mediaRecorderRef.current.requestData(); // flush first chunk
-            mediaRecorderRef.current.stop();
-        }
-    };
+    mediaRecorder.onstop = async () => {
+      // ✅ Always send as .webm
+      const audioBlob = new Blob(audioChunks.current, { type: mimeType });
+      audioChunks.current = [];
 
-    const toggleMic = () => {
-        if (!listening) {
-            recognitionRef.current.start();
-            startRecording();
-            setListening(true);
+      const formData = new FormData();
+      formData.append("file", audioBlob, "speech.webm");
+
+      try {
+        const res = await fetch("http://localhost:8000/transcribe", {
+          method: "POST",
+          body: formData,
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          console.error("ASR API error:", res.status, errText);
+          return;
         }
-        else {
-            recognitionRef.current.stop();
-            setListening(false);
-        }
+        const data = await res.json();
+        onTranscript(data.transcription); // ✅ matches backend
+      } catch (err) {
+        console.error("ASR request failed:", err);
+      }
+    };
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      setRecording(false);
     }
+  };
 
-    return (
-        <button type="button" onClick={toggleMic}>
-            {listening ? "🛑" : "🎤"}
-        </button>
-    );
+  return (
+    <button type="button" onClick={recording ? stopRecording : startRecording}>
+      {recording ? "⏹ Stop" : "🎤 Mic"}
+    </button>
+  );
 }
