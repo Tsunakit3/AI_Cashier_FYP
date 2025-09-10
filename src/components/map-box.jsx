@@ -70,25 +70,13 @@ export default function MapBox() {
         console.log("Journey planner reset.");
     };
 
-
-    const clearSelection = () => {
-        setDeparture(null);
-        setDestination(null);
-        setSelecting(null);
-    };
-
-    const journeyData = {
-        departure,
-        destination,
-    };
-
     return (
         <div className="map-box">
             <div className="lrt-title">
                 <h3>LRT & MRT Journey Planner</h3>
 
                 <p className="instruction-text">
-                    Please select your departure{" "}
+                    Please select your Departure{" "}
                     <span
                         className="select-box"
                         style={{ color: departure?.lineColor || "#ccc" }}
