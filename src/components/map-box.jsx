@@ -1,213 +1,203 @@
 import '../styles/MapBox.css'
-import lines from '../data/lineData';
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import RouteMap from './react-map';
 
-export default function MapBox() {
+export default function MapBox({ onConfirmJourney, routeDetails }) {
+    const [linesData, setLinesData] = useState({});
     const [expandedLine, setExpandedLine] = useState(null);
-    const [departure, setDeparture] = useState(null);
+    const [currentStation, setCurrentStation] = useState("Loading...");
     const [destination, setDestination] = useState(null);
-    const [selecting, setSelecting] = useState(null); // "departure" or "destination"
+    const [selecting, setSelecting] = useState(false); // true if selecting destination
 
-    const toggleExpand = (lineId) => {
-        setExpandedLine(expandedLine === lineId ? null : lineId);
+    useEffect(() => {
+        fetch("http://localhost:8010/lines_data")
+            .then(res => res.json())
+            .then(data => setLinesData(data.lines_data || {}))
+            .catch(err => console.error("Failed to fetch lines_data:", err));
+
+        // WebSocket for real-time current station
+        let ws;
+        function setupWebSocket() {
+            ws = new window.WebSocket("ws://localhost:8010/ws/current_station");
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.current_station) {
+                        setCurrentStation(data.current_station);
+                    }
+                } catch (err) {
+                    setCurrentStation("Unavailable");
+                }
+            };
+            ws.onerror = () => setCurrentStation("Unavailable");
+        }
+        setupWebSocket();
+        return () => { if (ws) ws.close(); };
+    }, []);
+
+    const toggleExpand = (lineName) => {
+        setExpandedLine(expandedLine === lineName ? null : lineName);
     };
 
-    const handleStationClick = (station, lineName, lineColor) => {
-        if (selecting === "departure") {
-            setDeparture({ station, lineName, lineColor });
-            setSelecting(null);
-        } else if (selecting === "destination") {
-            setDestination({ station, lineName, lineColor });
-            setSelecting(null);
+    const handleStationClick = (station, lineName) => {
+        if (selecting) {
+            setDestination({ station, lineName });
+            setSelecting(false);
         }
     };
 
+    
     const handleConfirmJourney = () => {
-        if (!departure || !destination) return;
-
-        const message = `Route from ${departure.station} to ${destination.station}`;
-        console.log("Sending to LLM:", message);
-
-        // Reset after confirm
-        setDeparture(null);
-        setDestination(null);
+        if (!destination) return;
+        const message = `Route to ${destination.station}`;
+        handleResetJourney();
+        if (onConfirmJourney) onConfirmJourney(message);
     };
 
-    /*
-    const handleConfirmJourney = async () => {
-        if (!departure || !destination) return;
-
-        const message = `Route from ${departure.station} to ${destination.station}`;
-
-        try {
-            const response = await fetch("http://localhost:8010/chat", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ message }),
-            });
-
-            if (!response.ok) {
-                throw new Error(`API error: ${response.statusText}`);
-            }
-
-            const data = await response.json();
-            console.log("LLM API response:", data);
-
-            // After confirming, reset the journey
-            handleResetJourney();
-
-        } catch (error) {
-            console.error("Failed to send journey to LLM API:", error);
-        }
-    };
-    */
 
     const handleResetJourney = () => {
-        setDeparture(null);
         setDestination(null);
         console.log("Journey planner reset.");
     };
 
 
     const clearSelection = () => {
-        setDeparture(null);
         setDestination(null);
-        setSelecting(null);
+        setSelecting(false);
     };
 
     const journeyData = {
-        departure,
+        currentStation,
         destination,
     };
 
     return (
         <div className="map-box">
-            <div className="lrt-title">
-                <h3>LRT & MRT Journey Planner</h3>
-
-                <p className="instruction-text">
-                    Please select your departure{" "}
-                    <span
-                        className="select-box"
-                        style={{ color: departure?.lineColor || "#ccc" }}
-                        onClick={() => setSelecting("departure")}
-                    >
-                        {departure ? departure.station : "Station"}
-                    </span>{" "}
-                    and Destination{" "}
-                    <span
-                        className="select-box"
-                        style={{ color: destination?.lineColor || "#ccc" }}
-                        onClick={() => setSelecting("destination")}
-                    >
-                        {destination ? destination.station : "Station"}
-                    </span>
-                </p>
-            </div>
-
-            {/* Station Picker */}
-            {selecting && (
-                <div className="station-picker">
-                    <hr className="section-divider" />
-
-                    {/* Header with title + actions */}
-                    <div className="station-picker-header">
-                        <h4>
-                            Select {selecting === "departure" ? "Departure" : "Destination"} Station
-                        </h4>
-                        <div className="station-picker-actions">
-                            <button
-                                className="picker-btn clear"
-                                onClick={() => {
-                                    if (selecting === "departure") setDeparture(null);
-                                    if (selecting === "destination") setDestination(null);
-                                    setSelecting(null); //
-                                }}
-                            >
-                                Clear
-                            </button>
-                            <button
-                                className="picker-btn close"
-                                onClick={() => setSelecting(null)}
-                            >
-                                Close
-                            </button>
+            <div>
+                <div className="lrt-title" style={{ background: 'linear-gradient(90deg, #3A86FF 0%, #8338EC 100%)', borderRadius: '0', padding: '22px 32px 18px 32px', marginBottom: '14px', boxShadow: '0 2px 12px rgba(58,134,255,0.10)' }}>
+                    <h3 style={{ color: '#fff', fontFamily: 'Inter, Segoe UI, Arial, Helvetica, sans-serif', fontWeight: 700, fontSize: '1.7em', letterSpacing: '1px', marginBottom: '10px', textShadow: '0 2px 8px rgba(58,134,255,0.10)' }}>
+                        LRT & MRT Journey Planner
+                    </h3>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: '48px', marginTop: '4px' }}>
+                        <div style={{ width: '180px', minWidth: '140px', height: '54px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, Segoe UI, Arial, Helvetica, sans-serif', fontWeight: 500, fontSize: '0.92em', color: '#fff', background: 'rgba(0,0,0,0.10)', borderRadius: '12px', padding: '6px 0', boxShadow: '0 1px 4px rgba(58,134,255,0.10)' }}>
+                            <span style={{ opacity: 0.8, fontSize: '0.92em', marginBottom: '1px' }}>Current Station:</span>
+                            <span style={{ color: '#FFBE0B', fontWeight: 700, fontSize: '1em', textAlign: 'center' }}>{currentStation}</span>
+                        </div>
+                        <div style={{ width: '180px', minWidth: '140px', height: '54px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, Segoe UI, Arial, Helvetica, sans-serif', fontWeight: 500, fontSize: '0.92em', color: '#fff', background: 'rgba(0,0,0,0.10)', borderRadius: '12px', padding: '6px 0', boxShadow: '0 1px 4px rgba(58,134,255,0.10)', cursor: 'pointer', transition: 'background 0.2s' }}
+                            onClick={() => setSelecting(true)}
+                        >
+                            <span style={{ opacity: 0.8, fontSize: '0.92em', marginBottom: '1px' }}>Destination:</span>
+                            <span style={{ color: destination ? '#FF006E' : '#ccc', fontWeight: 700, fontSize: '1em', textAlign: 'center' }}>{destination ? destination.station : 'Select Station'}</span>
                         </div>
                     </div>
-
-                    <div className="line-list">
-                        {lines.map((line) => (
-                            <div key={line.id} className="line-container">
-                                <div
-                                    className="line-box"
-                                    style={{ backgroundColor: line.color }}
-                                    onClick={() => toggleExpand(line.id)}
-                                >
-                                    {line.name}
-                                    <span className="expand-icon">
-                                        {expandedLine === line.id ? "▼" : "▶"}
-                                    </span>
-                                </div>
-
-                                <div
-                                    className={`station-list-wrapper ${expandedLine === line.id ? "open" : ""
-                                        }`}
-                                >
-                                    <div className="station-list-horizontal">
-                                        {line.stations.map((station, index) => (
-                                            <div
-                                                key={index}
-                                                className="station-box-horizontal"
-                                                onClick={() =>
-                                                    handleStationClick(station, line.name, line.color)
-                                                }
-                                            >
-                                                {station}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
                 </div>
-            )}
+                {/* Station Picker - always rendered below lrt-title, never overlapping */}
+                {selecting && (
+                    <div className="station-picker" style={{ padding: '6px 20px 18px 20px' }}>
+                        <div className="station-picker-header">
+                            <h4>
+                                Select Destination Station
+                            </h4>
+                            <div className="station-picker-actions">
+                                <button
+                                    className="picker-btn clear"
+                                    onClick={clearSelection}
+                                >
+                                    Clear
+                                </button>
+                                <button
+                                    className="picker-btn close"
+                                    onClick={() => setSelecting(false)}
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                        <div className="line-list" style={{ maxHeight: '350px', overflowY: 'auto', paddingRight: '8px' }}>
+                            {Object.entries(linesData).map(([lineName, stations], idx) => {
+                                // Assign a color for each line (fallback to palette)
+                                const lineColors = [
+                                    '#D7263D', // Red
+                                    '#1B998B', // Teal
+                                    '#2E294E', // Dark Blue
+                                    '#F46036', // Orange
+                                    '#3A86FF', // Blue
+                                    '#8338EC', // Purple
+                                    '#FF006E', // Pink
+                                    '#FFBE0B', // Yellow
+                                ];
+                                const lineColor = lineColors[idx % lineColors.length];
+                                return (
+                                    <div key={lineName} className="line-container">
+                                        <div
+                                            className="line-box"
+                                            style={{ background: lineColor, color: '#fff', fontWeight: 'bold', fontSize: '1.1em', letterSpacing: '0.5px' }}
+                                            onClick={() => toggleExpand(lineName)}
+                                        >
+                                            {lineName}
+                                            <span className="expand-icon" style={{ color: '#fff' }}>
+                                                {expandedLine === lineName ? '▼' : '▶'}
+                                            </span>
+                                        </div>
+                                        <div className={`station-list-wrapper ${expandedLine === lineName ? 'open' : ''}`}>
+                                            <div className="station-list-horizontal" style={{ display: 'flex', flexDirection: 'column', overflowY: 'auto', maxHeight: '220px', paddingRight: '8px' }}>
+                                                {stations.map((station, index) => (
+                                                    <div
+                                                        key={index}
+                                                        className="station-box-horizontal"
+                                                        style={{ color: '#222', background: '#f7f7f7', border: `2px solid ${lineColor}`, fontWeight: '500', margin: '0 4px', borderRadius: '8px', padding: '6px 12px', cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', minWidth: '90px', textAlign: 'center' }}
+                                                        onClick={() => handleStationClick(station, lineName)}
+                                                    >
+                                                        {station}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+            </div>
 
             {/* Journey Info */}
-            {departure && destination && (
-                <div className="journey-info">
-                    <div className="journey-details">
+            {currentStation && destination && (
+                <div className="journey-info" style={{ display: 'flex', flexDirection: 'column', width: '340px', maxWidth: '100%', margin: '0 auto' }}>
+                    <div className="journey-details" style={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                         <h4>Journey Information</h4>
                         <div className="journey-row">
-                            <strong>From:</strong> {departure.station} &nbsp; → &nbsp;
+                            <strong>From:</strong> {currentStation} &nbsp; → &nbsp;
                             <strong>To:</strong> {destination.station}
                         </div>
                         <p>
-                            <strong>Line(s):</strong> {departure.lineName} → {destination.lineName}
+                            <strong>Line:</strong> {destination.lineName}
                         </p>
                         <p className="ready-text">Ready to plan your journey!</p>
-
                         <div className="journey-actions">
-                            <button
-                                className="confirm-button"
-                                onClick={() => handleConfirmJourney()}
-                            >
-                                Confirm Journey
-                            </button>
-                            <button
-                                className="reset-button"
-                                onClick={handleResetJourney}
-                            >
-                                Reset Journey
-                            </button>
+                            <div style={{ display: 'flex', width: '100%' }}>
+                                <button
+                                    className="confirm-button"
+                                    style={{ flex: 1, borderRadius: '12px 0 0 12px', padding: '14px 0', fontSize: '1.08em', fontWeight: 600, background: 'linear-gradient(90deg, #3A86FF 0%, #FFBE0B 100%)', color: '#fff', border: 'none', cursor: 'pointer' }}
+                                    onClick={() => handleConfirmJourney()}
+                                >
+                                    Confirm Journey
+                                </button>
+                                <button
+                                    className="reset-button"
+                                    style={{ flex: 1, borderRadius: '0 12px 12px 0', padding: '14px 0', fontSize: '1.08em', fontWeight: 600, background: 'linear-gradient(90deg, #FF006E 0%, #8338EC 100%)', color: '#fff', border: 'none', cursor: 'pointer' }}
+                                    onClick={clearSelection}
+                                >
+                                    Reset Journey
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
             )}
-
-
+            <div style={{ width: '100%', maxWidth: '100%', height: '400px', position: 'relative', overflow: 'hidden', borderRadius: '16px', boxShadow: '0 2px 12px rgba(58,134,255,0.10)', margin: '18px 0' }}>
+                {routeDetails && <RouteMap routeDetails={routeDetails} style={{ width: '100%', height: '100%' }} />}
+            </div>
         </div>
-    )
+    );
 }

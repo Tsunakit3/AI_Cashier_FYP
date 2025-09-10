@@ -2,7 +2,7 @@ import '../styles/ChatBox.css';
 import MicButton from './mic-button';
 import { useState, useRef, useEffect } from "react";
 
-export default function ChatBox() {
+export default function ChatBox({ message, onResponse }) {
     const [messages, setMessages] = useState([
         { id: 1, sender: "ai", text: "Hello 👋 I’m Lucy, your AI assistant, how may I help you today ?" },
     ]);
@@ -58,7 +58,6 @@ export default function ChatBox() {
 
         const newMessage = { id: Date.now(), sender: "user", text: input };
         setMessages((prev) => [...prev, newMessage]);
-
         try {
             const res = await fetch("http://localhost:8010/chat", {
                 method: "POST",
@@ -68,16 +67,37 @@ export default function ChatBox() {
                     session_id: "1234"
                 }),
             });
-
             const data = await res.json();
             await handleAIReply(data.text);
-
+            if (onResponse) onResponse(data);
         } catch (err) {
             console.error("Error:", err);
         } finally {
             setInput("");
         }
     };
+
+    useEffect(() => {
+        if (!message) return;
+        const sendParentMessage = async () => {
+            try {
+                const res = await fetch("http://localhost:8010/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        user_message: message,
+                        session_id: "1234"
+                    }),
+                });
+                const data = await res.json();
+                await handleAIReply(data.text);
+                if (onResponse) onResponse(data);
+            } catch (err) {
+                console.error("Error:", err);
+            }
+        };
+        sendParentMessage();
+    }, [message]);
 
     const handleTranscript = async (transcript) => {
         const userMessage = { id: Date.now(), sender: "user", text: transcript };
