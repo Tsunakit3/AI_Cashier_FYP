@@ -5,9 +5,21 @@ import MapBox from '../components/map-box';
 import Avatar from '../components/avatar';
 import { useState } from 'react';
 
-
 export default function Main() {
-    const [status, setStatus] = useState("chat");
+    const [chatMessage, setChatMessage] = useState(null);
+    const [routeDetails, setRouteDetails] = useState(null);
+
+    // Called by MapBox when journey is confirmed
+    const handleJourneyConfirm = (message) => {
+        setChatMessage(message);
+    };
+
+    // Called by ChatBox when response is received
+    const handleChatResponse = (response) => {
+        if (response.route_details) {
+            setRouteDetails(response.route_details);
+        }
+    };
 
     return (
         <div className="main-page">
@@ -20,13 +32,18 @@ export default function Main() {
                     <Avatar />
                 </div>
                 <div className="chat-container">
-                    <ChatBox />
+                    <ChatBox
+                        message={chatMessage}
+                        onResponse={handleChatResponse}
+                    />
                 </div>
                 <div className="map-container">
-                    <MapBox />
+                    <MapBox
+                        onConfirmJourney={handleJourneyConfirm}
+                        routeDetails={routeDetails}
+                    />
                 </div>
             </div>
-
         </div>
-    )
+    );
 }
