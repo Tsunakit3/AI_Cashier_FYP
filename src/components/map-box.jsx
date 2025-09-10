@@ -60,7 +60,6 @@ export default function MapBox({ onConfirmJourney, routeDetails }) {
         console.log("Journey planner reset.");
     };
 
-
     const clearSelection = () => {
         setDestination(null);
         setSelecting(false);
