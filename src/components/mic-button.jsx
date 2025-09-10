@@ -33,6 +33,7 @@ export default function MicButton({ onTranscript }) {
 
       const formData = new FormData();
       formData.append("file", audioBlob, "speech.webm");
+      formData.append("session_id", "1234"); // Replace with dynamic session_id if needed
 
       try {
         const res = await fetch("http://localhost:8000/transcribe", {
