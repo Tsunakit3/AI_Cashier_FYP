@@ -194,7 +194,7 @@ export default function MapBox({ onConfirmJourney, routeDetails }) {
                     </div>
                 </div>
             )}
-            <div style={{ width: '100%', maxWidth: '100%', height: '400px', position: 'relative', overflow: 'hidden', borderRadius: '16px', boxShadow: '0 2px 12px rgba(58,134,255,0.10)', margin: '18px 0' }}>
+            <div style={{ width: '100%', maxWidth: '100%', height: '470px', position: 'relative', overflow: 'hidden', borderRadius: '16px', boxShadow: '0 2px 12px rgba(58,134,255,0.10)', margin: '18px 0' }}>
                 {routeDetails && <RouteMap routeDetails={routeDetails} style={{ width: '100%', height: '100%' }} />}
             </div>
         </div>

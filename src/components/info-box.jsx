@@ -181,6 +181,75 @@ export default function InfoBox() {
                     {time.toLocaleDateString()} ({time.toLocaleDateString(undefined, { weekday: 'long' })})
                 </div>
             </div>
+
+            <div className="language-row">
+                <span className="language">Language:</span>
+                <div style={{ position: "relative", display: "inline-block", minWidth: "180px" }}>
+                    <select
+                        defaultValue="en"
+                        style={{
+                            width: "100%",
+                            paddingRight: "32px", // space for arrow
+                            appearance: "none",
+                            background: "linear-gradient(90deg, #f7f7f7 0%, #e0e0e0 100%)",
+                            color: "#222",
+                            border: "none",
+                            borderBottom: "2px solid #3A86FF",
+                            borderRadius: "12px",
+                            padding: "12px 28px",
+                            cursor: "pointer",
+                            fontWeight: "600",
+                            fontSize: "1.08em",
+                            fontFamily: "Inter, Segoe UI, Arial, Helvetica, sans-serif",
+                            minWidth: "180px",
+                            boxShadow: "0 2px 12px rgba(58,134,255,0.08)",
+                            transition: "box-shadow 0.2s",
+                            outline: "none"
+                        }}
+                        onChange={async (e) => {
+                            const lang = e.target.value;
+                            try {
+                                const res = await fetch("http://localhost:8010/set_language", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ language: lang })
+                                });
+                                const data = await res.json();
+                                // Optionally show feedback
+                            } catch (err) {
+                                // Optionally show error feedback
+                            }
+                        }}
+                    >
+                        <option value="en" style={{
+                            fontFamily: "Inter, Segoe UI, Arial, Helvetica, sans-serif",
+                            fontWeight: "600",
+                            fontSize: "1.08em",
+                            padding: "10px 0",
+                        }}> English</option>
+                        <option value="ms" style={{
+                            fontFamily: "Inter, Segoe UI, Arial, Helvetica, sans-serif",
+                            fontWeight: "600",
+                            fontSize: "1.08em",
+                            padding: "10px 0"
+                        }}> Malay</option>
+                    </select>
+                    <span
+                        style={{
+                            position: "absolute",
+                            right: "18px",
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            pointerEvents: "none",
+                            fontSize: "1.2em",
+                            color: "#3A86FF",
+                            fontWeight: "bold"
+                        }}
+                    >
+                        ▼
+                    </span>
+                </div>
+            </div>
         </div>
     )
 }
