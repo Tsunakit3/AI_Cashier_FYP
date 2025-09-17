@@ -3,11 +3,15 @@ import InfoBox from '../components/info-box';
 import ChatBox from '../components/chat-box';
 import MapBox from '../components/map-box';
 import Avatar from '../components/avatar';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 export default function Main() {
     const [chatMessage, setChatMessage] = useState(null);
     const [routeDetails, setRouteDetails] = useState(null);
+    const [mouthCues, setMouthCues] = useState([]);
+    const audioRef = useRef(null);
+    const [isTalking, setIsTalking] = useState(false);
+    const [triggerWave, setTriggerWave] = useState(false);
 
     // Called by MapBox when journey is confirmed
     const handleJourneyConfirm = (message) => {
@@ -29,12 +33,16 @@ export default function Main() {
             </div>
             <div className="main-container">
                 <div className="avatar-container">
-                    <Avatar />
+                    <Avatar audioRef={audioRef} mouthCues={mouthCues} isTalking={isTalking} triggerWave={triggerWave}/>
                 </div>
                 <div className="chat-container">
                     <ChatBox
                         message={chatMessage}
                         onResponse={handleChatResponse}
+                        setMouthCues = {setMouthCues}
+                        audioRef={audioRef}
+                        setIsTalking={setIsTalking}
+                        setTriggerWave={setTriggerWave}
                     />
                 </div>
                 <div className="map-container">
