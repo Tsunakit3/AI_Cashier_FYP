@@ -97,6 +97,52 @@ export default function ChatBox({ message, onResponse, audioRef, setMouthCues, s
             });
         };
     };
+    
+    // Helper to add PDF ticket as bot message with preview and download
+    const addTicketMessage = (pdfUrl) => {
+        setMessages((prev) => [
+            ...prev,
+            {
+                id: Date.now() + Math.random(),
+                sender: "ai",
+                text: (
+                    <span>
+                        <strong>🎫 Your Ticket:</strong><br />
+                        <iframe
+                            src={pdfUrl}
+                            title="Ticket PDF Preview"
+                            style={{
+                                width: "100%",
+                                maxWidth: "340px",
+                                height: "130px",
+                                border: "1px solid #ccc",
+                                borderRadius: "8px",
+                                margin: "12px 0"
+                            }}
+                        />
+                        <br />
+                        <a
+                            href={pdfUrl}
+                            download="ticket.pdf"
+                            style={{
+                                display: "inline-block",
+                                marginTop: "8px",
+                                padding: "8px 18px",
+                                background: "#3A86FF",
+                                color: "#fff",
+                                borderRadius: "8px",
+                                textDecoration: "none",
+                                fontWeight: "bold",
+                                fontSize: "1em"
+                            }}
+                        >
+                            ⬇️ Download Ticket PDF
+                        </a>
+                    </span>
+                ),
+            },
+        ]);
+    };
 
     const sendMessage = async (e) => {
         if (e) e.preventDefault();
@@ -117,6 +163,19 @@ export default function ChatBox({ message, onResponse, audioRef, setMouthCues, s
             const data = await res.json();
             await handleAIReply(data.text);
             if (onResponse) onResponse(data);
+            // If ticket_details is present, generate ticket PDF
+            if (data.ticket_details && data.ticket_details.ticket_id) {
+                const ticketRes = await fetch("http://localhost:8010/generate_ticket", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data.ticket_details),
+                });
+                if (ticketRes.ok) {
+                    const blob = await ticketRes.blob();
+                    const pdfUrl = URL.createObjectURL(blob);
+                    addTicketMessage(pdfUrl);
+                }
+            }
         } catch (err) {
             console.error("Error:", err);
         } finally {
