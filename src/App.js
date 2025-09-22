@@ -1,6 +1,6 @@
 import './styles/App.css';
 import { HashRouter, Routes, Route } from 'react-router-dom';
-import Boot from './pages/boot';
+import Boot from './pages/login';
 import Main from './pages/main';
 
 
