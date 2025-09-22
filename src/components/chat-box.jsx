@@ -8,6 +8,8 @@ export default function ChatBox({ message, onResponse, audioRef, setMouthCues, s
     ]);
     const [input, setInput] = useState("");
     const chatEndRef = useRef(null);
+    const micRef = useRef(null); // ref to control MicButton
+    const lastInputWasVoiceRef = useRef(false); // track whether last user input came from transcription
 
     // --- Typing indicator state ---
     const [isTyping, setIsTyping] = useState(false);
@@ -15,8 +17,6 @@ export default function ChatBox({ message, onResponse, audioRef, setMouthCues, s
     // --- Shared AI reply handler ---
     const handleAIReply = async (aiText) => {
         const aiMessageId = Date.now() + 1;
-
-        // Show typing indicator
         setIsTyping(true);
 
         // Trigger wave if greeting
@@ -63,16 +63,27 @@ export default function ChatBox({ message, onResponse, audioRef, setMouthCues, s
 
         const audioUrl = URL.createObjectURL(audioBlob);
         const audio = new Audio(audioUrl);
-
         audioRef.current = audio;
 
         audio.addEventListener("play", () => setIsTalking(true));
         audio.addEventListener("pause", () => setIsTalking(false));
-        audio.addEventListener("ended", () => setIsTalking(false));
+        audio.addEventListener("ended", () => {
+            setIsTalking(false);
+            // Auto re-arm mic only if last user input was voice
+            if (lastInputWasVoiceRef.current && micRef.current && !micRef.current.isRecording()) {
+                // small delay to avoid capturing tail of playback
+                setTimeout(() => {
+                    // Double-check still appropriate (user hasn't started typing etc.)
+                    if (lastInputWasVoiceRef.current && micRef.current && !micRef.current.isRecording()) {
+                        micRef.current.startRecording();
+                    }
+                }, 400);
+            }
+        });
 
         // Typing effect with timing proportional to audio duration
         audio.onloadedmetadata = () => {
-            setIsTyping(false); // Hide typing dots when real text starts
+            setIsTyping(false);
 
             const duration = audio.duration;
             const words = aiText.split(" ");
@@ -80,6 +91,9 @@ export default function ChatBox({ message, onResponse, audioRef, setMouthCues, s
 
             let currentText = "";
             setMessages((prev) => [...prev, { id: aiMessageId, sender: "ai", text: "" }]);
+
+            // Start audio + typing together
+            audio.play();
 
             words.forEach((word, i) => {
                 setTimeout(() => {
@@ -89,16 +103,12 @@ export default function ChatBox({ message, onResponse, audioRef, setMouthCues, s
                             msg.id === aiMessageId ? { ...msg, text: currentText } : msg
                         )
                     );
-
-                    if (i === words.length - 1) {
-                        audio.play();
-                    }
                 }, i * delay);
             });
         };
     };
-    
-    // Helper to add PDF ticket as bot message with preview and download
+
+    // Helper to add PDF ticket as bot message
     const addTicketMessage = (pdfUrl) => {
         setMessages((prev) => [
             ...prev,
@@ -144,26 +154,28 @@ export default function ChatBox({ message, onResponse, audioRef, setMouthCues, s
         ]);
     };
 
-    const sendMessage = async (e) => {
-        if (e) e.preventDefault();
-        if (!input.trim()) return;
+    // 🔑 Unified function for both typed + audio input
+    const processUserMessage = async (userText, { source = 'text' } = {}) => {
+        if (!userText.trim()) return;
 
-        const newMessage = { id: Date.now(), sender: "user", text: input };
+        const newMessage = { id: Date.now(), sender: "user", text: userText };
         setMessages((prev) => [...prev, newMessage]);
+        lastInputWasVoiceRef.current = (source === 'voice');
 
         try {
             const res = await fetch("http://localhost:8010/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    user_message: input,
+                    user_message: userText,
                     session_id: "1234"
                 }),
             });
             const data = await res.json();
             await handleAIReply(data.text);
             if (onResponse) onResponse(data);
-            // If ticket_details is present, generate ticket PDF
+
+            // Ticket handling
             if (data.ticket_details && data.ticket_details.ticket_id) {
                 const ticketRes = await fetch("http://localhost:8010/generate_ticket", {
                     method: "POST",
@@ -178,31 +190,22 @@ export default function ChatBox({ message, onResponse, audioRef, setMouthCues, s
             }
         } catch (err) {
             console.error("Error:", err);
-        } finally {
-            setInput("");
         }
     };
 
+    // --- Typed input handler
+    const sendMessage = (e) => {
+        if (e) e.preventDefault();
+        if (!input.trim()) return;
+        processUserMessage(input, { source: 'text' });
+        setInput("");
+        lastInputWasVoiceRef.current = false; // typed input cancels auto reactivation
+    };
+
+    // --- External parent message handler
     useEffect(() => {
         if (!message) return;
-        const sendParentMessage = async () => {
-            try {
-                const res = await fetch("http://localhost:8010/chat", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        user_message: message,
-                        session_id: "1234"
-                    }),
-                });
-                const data = await res.json();
-                await handleAIReply(data.text);
-                if (onResponse) onResponse(data);
-            } catch (err) {
-                console.error("Error:", err);
-            }
-        };
-        sendParentMessage();
+        processUserMessage(message);
     }, [message]);
 
     useEffect(() => {
@@ -242,7 +245,8 @@ export default function ChatBox({ message, onResponse, audioRef, setMouthCues, s
                     onChange={(e) => setInput(e.target.value)}
                 />
                 <button type="submit">➤</button>
-                <MicButton onTranscript={(t) => handleAIReply(t)} session_id="1234" />
+                {/* 🔑 Now audio also goes through processUserMessage */}
+                <MicButton ref={micRef} onTranscript={(t) => processUserMessage(t, { source: 'voice' })} session_id="1234" />
             </form>
         </div>
     );
