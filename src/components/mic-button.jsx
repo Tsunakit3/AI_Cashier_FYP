@@ -1,7 +1,9 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, forwardRef, useImperativeHandle } from "react";
 
-export default function MicButton({ onTranscript, session_id }) {
+// Converted to forwardRef to allow parent (ChatBox) to programmatically restart mic
+const MicButton = forwardRef(function MicButton({ onTranscript, session_id }, ref) {
   const [recording, setRecording] = useState(false);
+  const recordingStateRef = useRef(false); // mirrors recording state for imperative reads
   const mediaRecorderRef = useRef(null);
   const audioChunks = useRef([]);
   const audioContextRef = useRef(null);
@@ -16,6 +18,8 @@ export default function MicButton({ onTranscript, session_id }) {
   const minSpeechDuration = 500; // ms required of speech before accepting
 
   const startRecording = async () => {
+    // Prevent duplicate starts
+    if (recordingStateRef.current) return;
     vadStoppedRef.current = false;
     vadSpeechDurationRef.current = 0;
 
@@ -28,7 +32,8 @@ export default function MicButton({ onTranscript, session_id }) {
     mediaRecorderRef.current = mediaRecorder;
     audioChunks.current = [];
     mediaRecorder.start();
-    setRecording(true);
+  setRecording(true);
+  recordingStateRef.current = true;
 
     // --- VAD setup ---
     audioContextRef.current = new (window.AudioContext ||
@@ -49,6 +54,7 @@ export default function MicButton({ onTranscript, session_id }) {
         if (Date.now() - vadSilenceStartRef.current > vadTimeout) {
           vadStoppedRef.current = true;
           setRecording(false);
+          recordingStateRef.current = false;
           stopRecording();
         }
       } else {
@@ -67,8 +73,8 @@ export default function MicButton({ onTranscript, session_id }) {
 
     mediaRecorder.onstop = async () => {
       // --- Cleanup ---
-      if (processorRef.current) processorRef.current.disconnect();
-      if (audioContextRef.current) await audioContextRef.current.close();
+    if (processorRef.current) processorRef.current.disconnect();
+    if (audioContextRef.current) await audioContextRef.current.close();
       vadSilenceStartRef.current = null;
       vadStoppedRef.current = false;
 
@@ -113,9 +119,18 @@ export default function MicButton({ onTranscript, session_id }) {
   const stopRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       mediaRecorderRef.current.stop();
+      setRecording(false);
+      recordingStateRef.current = false;
     }
-    // Cleanup handled in onstop
+    // Cleanup largely handled in onstop
   };
+
+  // Expose imperative controls
+  useImperativeHandle(ref, () => ({
+    startRecording,
+    stopRecording,
+    isRecording: () => recordingStateRef.current,
+  }), []);
 
   return (
     <button
@@ -140,4 +155,6 @@ export default function MicButton({ onTranscript, session_id }) {
       {recording ? "■" : "🎤"}
     </button>
   );
-}
+});
+
+export default MicButton;

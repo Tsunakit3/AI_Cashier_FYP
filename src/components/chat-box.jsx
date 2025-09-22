@@ -8,6 +8,8 @@ export default function ChatBox({ message, onResponse, audioRef, setMouthCues, s
     ]);
     const [input, setInput] = useState("");
     const chatEndRef = useRef(null);
+    const micRef = useRef(null); // ref to control MicButton
+    const lastInputWasVoiceRef = useRef(false); // track whether last user input came from transcription
 
     // --- Typing indicator state ---
     const [isTyping, setIsTyping] = useState(false);
@@ -65,7 +67,19 @@ export default function ChatBox({ message, onResponse, audioRef, setMouthCues, s
 
         audio.addEventListener("play", () => setIsTalking(true));
         audio.addEventListener("pause", () => setIsTalking(false));
-        audio.addEventListener("ended", () => setIsTalking(false));
+        audio.addEventListener("ended", () => {
+            setIsTalking(false);
+            // Auto re-arm mic only if last user input was voice
+            if (lastInputWasVoiceRef.current && micRef.current && !micRef.current.isRecording()) {
+                // small delay to avoid capturing tail of playback
+                setTimeout(() => {
+                    // Double-check still appropriate (user hasn't started typing etc.)
+                    if (lastInputWasVoiceRef.current && micRef.current && !micRef.current.isRecording()) {
+                        micRef.current.startRecording();
+                    }
+                }, 400);
+            }
+        });
 
         // Typing effect with timing proportional to audio duration
         audio.onloadedmetadata = () => {
@@ -141,11 +155,12 @@ export default function ChatBox({ message, onResponse, audioRef, setMouthCues, s
     };
 
     // 🔑 Unified function for both typed + audio input
-    const processUserMessage = async (userText) => {
+    const processUserMessage = async (userText, { source = 'text' } = {}) => {
         if (!userText.trim()) return;
 
         const newMessage = { id: Date.now(), sender: "user", text: userText };
         setMessages((prev) => [...prev, newMessage]);
+        lastInputWasVoiceRef.current = (source === 'voice');
 
         try {
             const res = await fetch("http://localhost:8010/chat", {
@@ -181,8 +196,10 @@ export default function ChatBox({ message, onResponse, audioRef, setMouthCues, s
     // --- Typed input handler
     const sendMessage = (e) => {
         if (e) e.preventDefault();
-        processUserMessage(input);
+        if (!input.trim()) return;
+        processUserMessage(input, { source: 'text' });
         setInput("");
+        lastInputWasVoiceRef.current = false; // typed input cancels auto reactivation
     };
 
     // --- External parent message handler
@@ -229,7 +246,7 @@ export default function ChatBox({ message, onResponse, audioRef, setMouthCues, s
                 />
                 <button type="submit">➤</button>
                 {/* 🔑 Now audio also goes through processUserMessage */}
-                <MicButton onTranscript={(t) => processUserMessage(t)} session_id="1234" />
+                <MicButton ref={micRef} onTranscript={(t) => processUserMessage(t, { source: 'voice' })} session_id="1234" />
             </form>
         </div>
     );
