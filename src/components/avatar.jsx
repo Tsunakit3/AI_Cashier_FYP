@@ -24,7 +24,7 @@ const visemeMap = {
   S: "viseme_SS",    // hissing (s, z)
 };
 
-function AvatarScene({ audioRef, mouthCues = [], isTalking, triggerWave }) {
+function AvatarScene({ audioRef, mouthCues = [], isTalking, triggerWave, triggerBow }) {
   const { scene } = useGLTF("/models/68bc44744b2306b86e39ec94.glb");
 
   // ✅ Fix: useState for re-render
@@ -61,7 +61,7 @@ function AvatarScene({ audioRef, mouthCues = [], isTalking, triggerWave }) {
       }
     });
 
-    loader.load("/animations/Waving.fbx", (anim) => {
+    loader.load("/animations/Waving1.fbx", (anim) => {
       if (anim.animations.length > 0) {
         actions.current.waving = mixer.current.clipAction(anim.animations[0]);
       }
@@ -90,9 +90,38 @@ function AvatarScene({ audioRef, mouthCues = [], isTalking, triggerWave }) {
   // Handle wave trigger
   useEffect(() => {
     if (triggerWave && actions.current.waving) {
+      actions.current.idle?.stop(); // stop idle while waving
       actions.current.waving.reset().play();
+
+      // Ensure wave only plays once
+      actions.current.waving.clampWhenFinished = true;
+      actions.current.waving.loop = THREE.LoopOnce;
+
+      actions.current.waving.getMixer().addEventListener("finished", (e) => {
+        if (e.action === actions.current.waving) {
+          actions.current.idle?.reset().play(); // ✅ return to Idle
+        }
+      });
     }
   }, [triggerWave]);
+
+  // Handle bow trigger
+  useEffect(() => {
+    if (triggerBow && actions.current.bow) {
+      actions.current.idle?.stop(); // stop idle
+      actions.current.bow.reset().play();
+
+      // 🟢 When bow finishes, return to idle
+      actions.current.bow.clampWhenFinished = true;
+      actions.current.bow.loop = THREE.LoopOnce;
+
+      actions.current.bow.getMixer().addEventListener("finished", (e) => {
+        if (e.action === actions.current.bow) {
+          actions.current.idle?.reset().play(); // back to idle
+        }
+      });
+    }
+  }, [triggerBow]);
 
   useEffect(() => {
     console.log("MouthCues received in AvatarScene:", mouthCues);
@@ -145,7 +174,7 @@ function AvatarScene({ audioRef, mouthCues = [], isTalking, triggerWave }) {
 }
 
 // ✅ Wrapper component
-export default function Avatar({ audioRef, mouthCues, isTalking, triggerWave }) {
+export default function Avatar({ audioRef, mouthCues, isTalking, triggerWave, triggerBow }) {
   return (
     <Canvas camera={{ position: [0, 1.5, 4], fov: 50 }}>
       <ambientLight intensity={1} />
@@ -155,6 +184,7 @@ export default function Avatar({ audioRef, mouthCues, isTalking, triggerWave }) 
         mouthCues={mouthCues}
         isTalking={isTalking}
         triggerWave={triggerWave}
+        triggerBow={triggerBow}
       />
     </Canvas>
   );

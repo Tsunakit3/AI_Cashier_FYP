@@ -80,6 +80,14 @@
     cursor: pointer;
 }
 
+.chat-footer button:disabled {
+  background: #ccc !important;   /* gray background */
+  color: #666 !important;        /* dimmed text */
+  cursor: not-allowed !important;
+  opacity: 0.7;                  /* subtle fade */
+}
+
+
 .typing-indicator {
     display: flex;
     align-items: center;

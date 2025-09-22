@@ -19,7 +19,7 @@ export default function Login() {
             <div className="boot-background"></div>
             <div className="boot-container">
                 <img src="/images/mflag.png" alt="flag" className="flag" />
-                <h1 className="title"> LRT AI CASHIER </h1>
+                <h1 className="title"> AI CASHIER SYSTEM </h1>
                 <div className="power-container">
                     <p className="subtitle"> Press To Power On The System</p>
                     <button className="power-btn" onClick={handleClick}><IoPower /></button>

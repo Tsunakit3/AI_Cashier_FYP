@@ -2,37 +2,60 @@ import '../styles/ChatBox.css';
 import MicButton from './mic-button';
 import { useState, useRef, useEffect } from "react";
 
-export default function ChatBox({ message, onResponse, audioRef, setMouthCues, setIsTalking, setTriggerWave }) {
+export default function ChatBox({ message, onResponse, audioRef, setMouthCues, setIsTalking, setTriggerWave, setTriggerBow }) {
     const [messages, setMessages] = useState([
         { id: 1, sender: "ai", text: "Hello 👋 I’m Lucy, your AI assistant, how may I help you today ?" },
     ]);
     const [input, setInput] = useState("");
+    const [isProcessing, setIsProcessing] = useState(false);
     const chatEndRef = useRef(null);
-    const micRef = useRef(null); // ref to control MicButton
-    const lastInputWasVoiceRef = useRef(false); // track whether last user input came from transcription
+    const micRef = useRef(null);
+    const lastInputWasVoiceRef = useRef(false);
 
-    // --- Typing indicator state ---
     const [isTyping, setIsTyping] = useState(false);
+
+    // 🔑 Reset session (frontend only)
+    const resetSession = () => {
+        setMessages((prev) => [
+            ...prev,
+            {
+                id: Date.now() + Math.random(),
+                sender: "ai",
+                text: "🙏 Thanks for using AI Cashier, see you next time!",
+            },
+        ]);
+        if (typeof setTriggerBow === "function") {
+            setTriggerBow(true);
+            setTimeout(() => setTriggerBow(false), 2000); 
+        }
+        setTimeout(() => {
+            setMessages([
+                {
+                    id: 1,
+                    sender: "ai",
+                    text: "Hello 👋 I’m Lucy, your AI assistant, how may I help you today ?",
+                },
+            ]);
+            setMouthCues([]);
+            setIsTalking(false);
+            setTriggerWave(false);
+        }, 5000);
+    };
 
     // --- Shared AI reply handler ---
     const handleAIReply = async (aiText) => {
         const aiMessageId = Date.now() + 1;
         setIsTyping(true);
 
-        // Trigger wave if greeting
         if (/hi|hello/i.test(aiText)) {
             setTriggerWave(true);
             setTimeout(() => setTriggerWave(false), 1500);
         }
 
-        // Request TTS
         const ttsRes = await fetch("http://localhost:8020/infer", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                text: aiText,
-                speaker: "Shafiqah Idayu"
-            })
+            body: JSON.stringify({ text: aiText, speaker: "Shafiqah Idayu" }),
         });
 
         if (!ttsRes.ok) {
@@ -43,7 +66,6 @@ export default function ChatBox({ message, onResponse, audioRef, setMouthCues, s
 
         const audioBlob = await ttsRes.blob();
 
-        // Send audio to Rhubarb
         const formData = new FormData();
         formData.append("audio", audioBlob, "audio.wav");
 
@@ -69,11 +91,8 @@ export default function ChatBox({ message, onResponse, audioRef, setMouthCues, s
         audio.addEventListener("pause", () => setIsTalking(false));
         audio.addEventListener("ended", () => {
             setIsTalking(false);
-            // Auto re-arm mic only if last user input was voice
             if (lastInputWasVoiceRef.current && micRef.current && !micRef.current.isRecording()) {
-                // small delay to avoid capturing tail of playback
                 setTimeout(() => {
-                    // Double-check still appropriate (user hasn't started typing etc.)
                     if (lastInputWasVoiceRef.current && micRef.current && !micRef.current.isRecording()) {
                         micRef.current.startRecording();
                     }
@@ -81,34 +100,28 @@ export default function ChatBox({ message, onResponse, audioRef, setMouthCues, s
             }
         });
 
-        // Typing effect with timing proportional to audio duration
         audio.onloadedmetadata = () => {
             setIsTyping(false);
-
             const duration = audio.duration;
             const words = aiText.split(" ");
             const delay = (duration * 1000) / words.length;
 
             let currentText = "";
             setMessages((prev) => [...prev, { id: aiMessageId, sender: "ai", text: "" }]);
-
-            // Start audio + typing together
             audio.play();
 
             words.forEach((word, i) => {
                 setTimeout(() => {
                     currentText += word + " ";
                     setMessages((prev) =>
-                        prev.map((msg) =>
-                            msg.id === aiMessageId ? { ...msg, text: currentText } : msg
-                        )
+                        prev.map((msg) => (msg.id === aiMessageId ? { ...msg, text: currentText } : msg))
                     );
                 }, i * delay);
             });
         };
     };
 
-    // Helper to add PDF ticket as bot message
+    // --- Add PDF ticket message ---
     const addTicketMessage = (pdfUrl) => {
         setMessages((prev) => [
             ...prev,
@@ -134,6 +147,12 @@ export default function ChatBox({ message, onResponse, audioRef, setMouthCues, s
                         <a
                             href={pdfUrl}
                             download="ticket.pdf"
+                            onClick={() => {
+                                // ✅ Reset only AFTER user downloads
+                                setTimeout(() => {
+                                    resetSession();
+                                }, 5000); // small delay to ensure download starts
+                            }}
                             style={{
                                 display: "inline-block",
                                 marginTop: "8px",
@@ -154,28 +173,23 @@ export default function ChatBox({ message, onResponse, audioRef, setMouthCues, s
         ]);
     };
 
-    // 🔑 Unified function for both typed + audio input
+    // --- Process user message (typed/voice) ---
     const processUserMessage = async (userText, { source = 'text' } = {}) => {
         if (!userText.trim()) return;
-
-        const newMessage = { id: Date.now(), sender: "user", text: userText };
-        setMessages((prev) => [...prev, newMessage]);
+        setIsProcessing(true);
+        setMessages((prev) => [...prev, { id: Date.now(), sender: "user", text: userText }]);
         lastInputWasVoiceRef.current = (source === 'voice');
 
         try {
             const res = await fetch("http://localhost:8010/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    user_message: userText,
-                    session_id: "1234"
-                }),
+                body: JSON.stringify({ user_message: userText, session_id: "1234" }),
             });
             const data = await res.json();
             await handleAIReply(data.text);
             if (onResponse) onResponse(data);
 
-            // Ticket handling
             if (data.ticket_details && data.ticket_details.ticket_id) {
                 const ticketRes = await fetch("http://localhost:8010/generate_ticket", {
                     method: "POST",
@@ -190,19 +204,19 @@ export default function ChatBox({ message, onResponse, audioRef, setMouthCues, s
             }
         } catch (err) {
             console.error("Error:", err);
-        }
+        } finally {
+        setIsProcessing(false);  
+    }
     };
 
-    // --- Typed input handler
     const sendMessage = (e) => {
         if (e) e.preventDefault();
         if (!input.trim()) return;
         processUserMessage(input, { source: 'text' });
         setInput("");
-        lastInputWasVoiceRef.current = false; // typed input cancels auto reactivation
+        lastInputWasVoiceRef.current = false;
     };
 
-    // --- External parent message handler
     useEffect(() => {
         if (!message) return;
         processUserMessage(message);
@@ -223,7 +237,6 @@ export default function ChatBox({ message, onResponse, audioRef, setMouthCues, s
                     </div>
                 ))}
 
-                {/* Typing indicator */}
                 {isTyping && (
                     <div className="message-row ai">
                         <div className="message-bubble typing-indicator">
@@ -244,9 +257,10 @@ export default function ChatBox({ message, onResponse, audioRef, setMouthCues, s
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                 />
-                <button type="submit">➤</button>
-                {/* 🔑 Now audio also goes through processUserMessage */}
+                <button type="submit"  disabled={isProcessing} >➤</button>
                 <MicButton ref={micRef} onTranscript={(t) => processUserMessage(t, { source: 'voice' })} session_id="1234" />
+                {/* 🔄 Manual reset for testing */}
+                <button type="button" onClick={resetSession} style={{ marginLeft: "8px" }}  disabled={isProcessing} > Restart 🔄</button>
             </form>
         </div>
     );

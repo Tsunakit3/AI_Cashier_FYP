@@ -12,6 +12,7 @@ export default function Main() {
     const audioRef = useRef(null);
     const [isTalking, setIsTalking] = useState(false);
     const [triggerWave, setTriggerWave] = useState(false);
+    const [triggerBow, setTriggerBow] = useState(false);
 
     // Called by MapBox when journey is confirmed
     const handleJourneyConfirm = (message) => {
@@ -33,7 +34,7 @@ export default function Main() {
             </div>
             <div className="main-container">
                 <div className="avatar-container">
-                    <Avatar audioRef={audioRef} mouthCues={mouthCues} isTalking={isTalking} triggerWave={triggerWave}/>
+                    <Avatar audioRef={audioRef} mouthCues={mouthCues} isTalking={isTalking} triggerWave={triggerWave} triggerBow={triggerBow}/>
                 </div>
                 <div className="chat-container">
                     <ChatBox
@@ -43,6 +44,7 @@ export default function Main() {
                         audioRef={audioRef}
                         setIsTalking={setIsTalking}
                         setTriggerWave={setTriggerWave}
+                        setTriggerBow={setTriggerBow}
                     />
                 </div>
                 <div className="map-container">
