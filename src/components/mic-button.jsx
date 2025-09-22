@@ -8,12 +8,17 @@ export default function MicButton({ onTranscript, session_id }) {
   const processorRef = useRef(null);
   const vadSilenceStartRef = useRef(null);
   const vadStoppedRef = useRef(false);
+  const vadSpeechDurationRef = useRef(0);
 
-  const vadThreshold = 0.01; // silence detection threshold
+  // --- Tunable params ---
+  const vadThreshold = 0.015; // stricter threshold (reduce background pickup)
   const vadTimeout = 1000; // ms of silence before stopping
+  const minSpeechDuration = 500; // ms required of speech before accepting
 
   const startRecording = async () => {
     vadStoppedRef.current = false;
+    vadSpeechDurationRef.current = 0;
+
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
     const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
@@ -25,7 +30,7 @@ export default function MicButton({ onTranscript, session_id }) {
     mediaRecorder.start();
     setRecording(true);
 
-    // Audio context for silence detection (VAD)
+    // --- VAD setup ---
     audioContextRef.current = new (window.AudioContext ||
       window.webkitAudioContext)();
     const source = audioContextRef.current.createMediaStreamSource(stream);
@@ -33,21 +38,22 @@ export default function MicButton({ onTranscript, session_id }) {
 
     processorRef.current.onaudioprocess = (e) => {
       if (vadStoppedRef.current) return;
+
       const input = e.inputBuffer.getChannelData(0);
       let sum = 0;
-      for (let i = 0; i < input.length; i++) {
-        sum += input[i] * input[i];
-      }
+      for (let i = 0; i < input.length; i++) sum += input[i] * input[i];
       const rms = Math.sqrt(sum / input.length);
 
       if (rms < vadThreshold) {
         if (!vadSilenceStartRef.current) vadSilenceStartRef.current = Date.now();
         if (Date.now() - vadSilenceStartRef.current > vadTimeout) {
           vadStoppedRef.current = true;
-          setRecording(false); // immediately toggle off the button
+          setRecording(false);
           stopRecording();
         }
       } else {
+        // speech detected
+        vadSpeechDurationRef.current += (e.inputBuffer.duration * 1000);
         vadSilenceStartRef.current = null;
       }
     };
@@ -56,13 +62,11 @@ export default function MicButton({ onTranscript, session_id }) {
     processorRef.current.connect(audioContextRef.current.destination);
 
     mediaRecorder.ondataavailable = (event) => {
-      if (event.data.size > 0) {
-        audioChunks.current.push(event.data);
-      }
+      if (event.data.size > 0) audioChunks.current.push(event.data);
     };
 
     mediaRecorder.onstop = async () => {
-      // Cleanup VAD
+      // --- Cleanup ---
       if (processorRef.current) processorRef.current.disconnect();
       if (audioContextRef.current) await audioContextRef.current.close();
       vadSilenceStartRef.current = null;
@@ -70,6 +74,12 @@ export default function MicButton({ onTranscript, session_id }) {
 
       const audioBlob = new Blob(audioChunks.current, { type: mimeType });
       audioChunks.current = [];
+
+      // 🚫 Ignore if user barely spoke
+      if (vadSpeechDurationRef.current < minSpeechDuration) {
+        console.log("Ignored: too little speech detected.");
+        return;
+      }
 
       const formData = new FormData();
       formData.append("file", audioBlob, "speech.webm");
@@ -86,7 +96,14 @@ export default function MicButton({ onTranscript, session_id }) {
           return;
         }
         const data = await res.json();
-        onTranscript(data.transcription);
+
+        // 🚫 Ignore junk / empty / single-word transcripts
+        if (!data.transcription || data.transcription.trim().length < 2) {
+          console.log("Ignored: empty or too short transcript.");
+          return;
+        }
+
+        onTranscript(data.transcription.trim());
       } catch (err) {
         console.error("ASR request failed:", err);
       }
@@ -97,7 +114,7 @@ export default function MicButton({ onTranscript, session_id }) {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       mediaRecorderRef.current.stop();
     }
-    // Cleanup happens in onstop
+    // Cleanup handled in onstop
   };
 
   return (
